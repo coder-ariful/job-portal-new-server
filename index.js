@@ -37,14 +37,21 @@ async function run() {
         const jobCollection = client.db('jobPortal').collection('jobs');
         const jobApplicationCollection = client.db('jobPortal').collection('job_Applications');
 
+
+        // =============== Job related apis =======================
         // Get all jobs
         app.get('/jobs', async (req, res) => {
-            const query = {};
+            const email = req.query.email // query use for only search box in write.
+            let query = {};
+            if (email) {
+                query = {
+                    hr_email : email
+                }
+            }
             const cursor = jobCollection.find(query);
             const jobs = await cursor.toArray();
             res.send(jobs);
         });
-
         // Get single jobs
         app.get('/jobDetails/:id', async (req, res) => {
             const id = req.params.id;
@@ -52,8 +59,15 @@ async function run() {
             const job = await jobCollection.findOne(query);
             res.send(job);
         });
+        // Create a New Job 
+        app.post('/jobs', async (req, res) => {
+            const newJob = req.body;
+            const result = await jobCollection.insertOne(newJob)
+            res.send(result)
+        })
 
-        // Job Application api
+
+        // ================== Job Application related apis ====================
         app.post('/job-application', async (req, res) => {
             const application = req.body;
             console.log('application', application);
