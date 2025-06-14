@@ -45,7 +45,7 @@ async function run() {
             let query = {};
             if (email) {
                 query = {
-                    hr_email : email
+                    hr_email: email
                 }
             }
             const cursor = jobCollection.find(query);
@@ -72,8 +72,52 @@ async function run() {
             const application = req.body;
             console.log('application', application);
             const result = await jobApplicationCollection.insertOne(application);
+
+            // Not the best way (use aggregate)
+            const id = application.jobId
+            const query = { _id: new ObjectId(id) }
+            const job = await jobCollection.findOne(query);
+            let newCount = 0;
+            if (job.applicationCount) {
+                newCount = job.applicationCount + 1
+            }
+            else {
+                newCount = 1;
+            }
+            // Now update the job info
+            const filter = { _id: new ObjectId(id) }
+            const updatedDoc = {
+                $set: {
+                    applicationCount: newCount
+                }
+            }
+
+            const updatedResult = await jobCollection.updateOne(filter, updatedDoc);
+            console.log(job);
             res.send(result);
         });
+
+        app.patch('/job-application/:id', async (req, res) => {
+            const id = req.params.id;
+            const data = req.body;
+            const filter = { _id: new ObjectId(id) }
+            const updatedDoc = {
+                $set:{
+                    status : data.status
+                }
+            }
+            const result = await jobApplicationCollection.updateOne(filter, updatedDoc)
+            res.send(result)
+        })
+
+        // get total applying user details.
+        app.get('/job-application/jobs/:job_id', async (req, res) => {
+            const job_id = req.params.job_id;
+            const query = { jobId: job_id }
+            const result = await jobApplicationCollection.find(query).toArray()
+            console.log(result);
+            res.send(result)
+        })
 
         // Get Some Details form job applications
         app.get('/job-application', async (req, res) => {
