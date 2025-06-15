@@ -1,13 +1,42 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 require('dotenv').config()
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173'],
+    credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser())
+
+// for verify token 
+const logger = (req, res, next) => {
+    console.log('Hello world Is login Yes!');
+    next();
+}
+
+const verifyToken = (req, res, next) => {
+    const token = req?.cookies?.token;
+    console.log(token);
+    // if token is not have. then is loop will run.
+    if (!token) {
+        return res.status(401).send({ message: 'there is a error in token or Unauthorized !!' })
+    }
+    // if token is there but not matching then this loop will run.
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ message: 'Unauthorized Public is here!!' })
+        }
+        req.user = decoded
+        next()
+    })
+}
 
 
 
@@ -38,9 +67,24 @@ async function run() {
         const jobApplicationCollection = client.db('jobPortal').collection('job_Applications');
 
 
+        // ================= Auth related api =====================
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            // create token here
+            const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' })
+            res
+                .cookie('token', token, {
+                    httpOnly: true,
+                    secure: false // when https use then the value is true
+
+                })
+                .send({ success: true })
+        })
+
+
         // =============== Job related apis =======================
         // Get all jobs
-        app.get('/jobs', async (req, res) => {
+        app.get('/jobs', logger, async (req, res) => {
             const email = req.query.email // query use for only search box in write.
             let query = {};
             if (email) {
@@ -102,8 +146,8 @@ async function run() {
             const data = req.body;
             const filter = { _id: new ObjectId(id) }
             const updatedDoc = {
-                $set:{
-                    status : data.status
+                $set: {
+                    status: data.status
                 }
             }
             const result = await jobApplicationCollection.updateOne(filter, updatedDoc)
@@ -120,9 +164,16 @@ async function run() {
         })
 
         // Get Some Details form job applications
-        app.get('/job-application', async (req, res) => {
+        app.get('/job-application',verifyToken, async (req, res) => {
             const email = req.query.email
             const query = { userEmail: email };
+
+            if(req.user.email !== req.query.email) {
+                return res.status(403).send({message : "You are forbidden access!!"})
+            }
+
+            console.log('cuk cuk cookies : ', req.cookies);
+
             const cursor = jobApplicationCollection.find(query);
             const applications = await cursor.toArray();
 
@@ -145,7 +196,7 @@ async function run() {
         // Get Delete a job application
         app.delete('/job-application/:id', async (req, res) => {
             const id = req.params.id;
-            console.log(id);
+            // console.log(id);
             const query = { _id: new ObjectId(id) };
             const result = await jobApplicationCollection.deleteOne(query);
             res.send(result);
