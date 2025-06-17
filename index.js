@@ -17,13 +17,13 @@ app.use(cookieParser())
 
 // for verify token 
 const logger = (req, res, next) => {
-    console.log('Hello world Is login Yes!');
+    // console.log('Hello world Is login Yes!');
     next();
 }
 
 const verifyToken = (req, res, next) => {
     const token = req?.cookies?.token;
-    console.log(token);
+    // console.log(token);
     // if token is not have. then is loop will run.
     if (!token) {
         return res.status(401).send({ message: 'there is a error in token or Unauthorized !!' })
@@ -81,10 +81,14 @@ async function run() {
                 .send({ success: true })
         })
 
+        app.post('/logout', (req, res) => {
+
+        })
+
 
         // =============== Job related apis =======================
         // Get all jobs
-        app.get('/jobs', logger, async (req, res) => {
+        app.get('/jobs', async (req, res) => {
             const email = req.query.email // query use for only search box in write.
             let query = {};
             if (email) {
@@ -96,6 +100,20 @@ async function run() {
             const jobs = await cursor.toArray();
             res.send(jobs);
         });
+
+        app.get('/jobs/user', verifyToken, async (req, res) => {
+            const email = req?.query?.email;
+            let query = {};
+            if (email) {
+                query = {
+                    hr_email: email
+                }
+            }
+            const cursor = jobCollection.find(query);
+            const jobs = await cursor.toArray();
+            res.send(jobs);
+        })
+
         // Get single jobs
         app.get('/jobDetails/:id', async (req, res) => {
             const id = req.params.id;
@@ -114,7 +132,7 @@ async function run() {
         // ================== Job Application related apis ====================
         app.post('/job-application', async (req, res) => {
             const application = req.body;
-            console.log('application', application);
+            // console.log('application', application);
             const result = await jobApplicationCollection.insertOne(application);
 
             // Not the best way (use aggregate)
@@ -137,7 +155,7 @@ async function run() {
             }
 
             const updatedResult = await jobCollection.updateOne(filter, updatedDoc);
-            console.log(job);
+            // console.log(job);
             res.send(result);
         });
 
@@ -154,25 +172,25 @@ async function run() {
             res.send(result)
         })
 
-        // get total applying user details.
+        //======================== get total applying user details. or PostedJob =====================
         app.get('/job-application/jobs/:job_id', async (req, res) => {
             const job_id = req.params.job_id;
             const query = { jobId: job_id }
             const result = await jobApplicationCollection.find(query).toArray()
-            console.log(result);
+            // console.log(result);
             res.send(result)
         })
 
         // Get Some Details form job applications
-        app.get('/job-application',verifyToken, async (req, res) => {
+        app.get('/job-application', verifyToken, async (req, res) => {
             const email = req.query.email
             const query = { userEmail: email };
 
-            if(req.user.email !== req.query.email) {
-                return res.status(403).send({message : "You are forbidden access!!"})
+            if (req.user.email !== req.query.email) {
+                return res.status(403).send({ message: "You are forbidden access!!" })
             }
 
-            console.log('cuk cuk cookies : ', req.cookies);
+            // console.log('cuk cuk cookies : ', req.cookies);
 
             const cursor = jobApplicationCollection.find(query);
             const applications = await cursor.toArray();
