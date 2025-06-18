@@ -82,7 +82,12 @@ async function run() {
         })
 
         app.post('/logout', (req, res) => {
-
+            res
+                .clearCookie('token',{
+                    httpOnly : true,
+                    secure : false
+                })
+                .send({message : "Successfully Logout USER."})
         })
 
 
