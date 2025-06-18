@@ -9,7 +9,7 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:5173'],
+    origin: ['http://localhost:5173', 'https://job-portal-a50f8.firebaseapp.com', 'https://job-portal-a50f8.web.app'],
     credentials: true
 }));
 app.use(express.json());
@@ -75,7 +75,8 @@ async function run() {
             res
                 .cookie('token', token, {
                     httpOnly: true,
-                    secure: false // when https use then the value is true
+                    secure:  true,  // process.env.NODE_ENV === "production" // when https use then the value is true
+                    sameSite: 'None'
 
                 })
                 .send({ success: true })
@@ -83,11 +84,12 @@ async function run() {
 
         app.post('/logout', (req, res) => {
             res
-                .clearCookie('token',{
-                    httpOnly : true,
-                    secure : false
+                .clearCookie('token', {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: 'None'
                 })
-                .send({message : "Successfully Logout USER."})
+                .send({ message: "Successfully Logout USER." })
         })
 
 
@@ -113,6 +115,9 @@ async function run() {
                 query = {
                     hr_email: email
                 }
+            }
+            if (req.user.email !== req.query.email) {
+                return res.status(403).send({ message: "You are forbidden access!!" })
             }
             const cursor = jobCollection.find(query);
             const jobs = await cursor.toArray();
@@ -244,3 +249,164 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
+
+
+// ===============================================================================
+
+
+// MARKED + FIXED VERSION of your code for VERCEL DEPLOYMENT
+
+// const express = require('express');
+// const serverless = require('serverless-http');
+// const cors = require('cors');
+// const jwt = require('jsonwebtoken');
+// const cookieParser = require('cookie-parser');
+// const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+// require('dotenv').config();
+
+// const app = express();
+
+// // ============ FIXED Middleware ============
+// app.use(cors({
+//     origin: [
+//         'http://localhost:5173',
+//         'https://job-portal-a50f8.firebaseapp.com',
+//         'https://job-portal-a50f8.web.app'
+//     ],
+//     credentials: true
+// }));
+// app.use(express.json());
+// app.use(cookieParser());
+
+// // ============ VERIFY TOKEN ============
+// const verifyToken = (req, res, next) => {
+//     const token = req?.cookies?.token;
+//     if (!token) {
+//         return res.status(401).send({ message: 'Unauthorized: No token provided' });
+//     }
+//     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+//         if (err) {
+//             return res.status(401).send({ message: 'Unauthorized: Invalid token' });
+//         }
+//         req.user = decoded;
+//         next();
+//     });
+// };
+
+// // ============ MONGODB CLIENT with CACHE ============
+// let cachedClient = null;
+// async function getClient() {
+//     if (cachedClient) return cachedClient;
+//     const uri = `mongodb+srv://${process.env.DB_USR}:${process.env.DB_PWD}@cluster0.fxqoncr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+//     const client = new MongoClient(uri, {
+//         serverApi: {
+//             version: ServerApiVersion.v1,
+//             strict: true,
+//             deprecationErrors: true
+//         },
+//         connectTimeoutMS: 60000,
+//         serverSelectionTimeoutMS: 60000,
+//         maxPoolSize: 1
+//     });
+//     await client.connect();
+//     cachedClient = client;
+//     return client;
+// }
+
+// // ============ MAIN ROUTES ============
+// app.post('/jwt', async (req, res) => {
+//     const user = req.body;
+//     const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
+//     res
+//         .cookie('token', token, {
+//             httpOnly: true,
+//             secure: process.env.NODE_ENV === 'production'
+//         })
+//         .send({ success: true });
+// });
+
+// app.post('/logout', (req, res) => {
+//     res
+//         .clearCookie('token', {
+//             httpOnly: true,
+//             secure: process.env.NODE_ENV === 'production'
+//         })
+//         .send({ message: 'Successfully Logged Out' });
+// });
+
+// app.get('/jobs', async (req, res) => {
+//     try {
+//         const client = await getClient();
+//         const email = req.query.email;
+//         let query = {};
+//         if (email) query.hr_email = email;
+//         const jobs = await client.db('jobPortal').collection('jobs').find(query).toArray();
+//         res.send(jobs);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).send({ message: 'Internal Server Error' });
+//     }
+// });
+
+// app.get('/jobs/user', verifyToken, async (req, res) => {
+//     try {
+//         const email = req.query.email;
+//         if (req.user.email !== email) return res.status(403).send({ message: 'Forbidden Access' });
+//         const client = await getClient();
+//         const jobs = await client.db('jobPortal').collection('jobs').find({ hr_email: email }).toArray();
+//         res.send(jobs);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).send({ message: 'Internal Server Error' });
+//     }
+// });
+
+// app.get('/jobDetails/:id', async (req, res) => {
+//     try {
+//         const client = await getClient();
+//         const job = await client.db('jobPortal').collection('jobs').findOne({ _id: new ObjectId(req.params.id) });
+//         res.send(job);
+//     } catch (err) {
+//         res.status(500).send({ message: 'Job not found' });
+//     }
+// });
+
+// app.post('/jobs', async (req, res) => {
+//     try {
+//         const client = await getClient();
+//         const result = await client.db('jobPortal').collection('jobs').insertOne(req.body);
+//         res.send(result);
+//     } catch (err) {
+//         res.status(500).send({ message: 'Failed to create job' });
+//     }
+// });
+
+// app.post('/job-application', async (req, res) => {
+//     try {
+//         const client = await getClient();
+//         const application = req.body;
+//         const result = await client.db('jobPortal').collection('job_Applications').insertOne(application);
+
+//         const jobId = application.jobId;
+//         const job = await client.db('jobPortal').collection('jobs').findOne({ _id: new ObjectId(jobId) });
+//         const newCount = (job.applicationCount || 0) + 1;
+//         await client.db('jobPortal').collection('jobs').updateOne(
+//             { _id: new ObjectId(jobId) },
+//             { $set: { applicationCount: newCount } }
+//         );
+//         res.send(result);
+//     } catch (err) {
+//         res.status(500).send({ message: 'Failed to submit application' });
+//     }
+// });
+
+// // NOTE: Other routes can follow same pattern (wrap with try/catch and use getClient)
+
+// // ============ WELCOME ROUTE ============
+// app.get('/', (req, res) => {
+//     res.send('Welcome to the Job Portal API');
+// });
+
+// // ============ EXPORT FOR VERCEL ============
+// module.exports = app;
+// module.exports.handler = serverless(app);
